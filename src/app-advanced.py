@@ -29,7 +29,7 @@ st.title("Document Chatbot")
 st.subheader("Chat with your own files.. or scrap papers from PubMed")
 st.markdown("---")
 
-use_openai = False
+use_openai = True
     
 def get_pdf_text(pdf_docs) -> Tuple[str, Document]:
     # from: https://stackoverflow.com/a/76816979/13283654
@@ -56,7 +56,7 @@ def get_text_chunks(text: str) -> List[str]:
 
 def get_vectorstore(text_chunks: List[str]):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=os.getenv("GOOGLE_API_KEY"))
-    if use_openai:
+    if use_openai and os.getenv("OPENAI_API_KEY") is not None:
         embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
     vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     return vectorstore
@@ -67,8 +67,9 @@ def get_conversation_chain(vectorstore):
         # ValueError: SystemMessages are not yet supported! To automatically convert the leading SystemMessage to a HumanMessage, set `convert_system_message_to_human` to True. Example: llm = ChatGoogleGenerativeAI(model="gemini-pro", convert_system_message_to_human=True)
         convert_system_message_to_human=True 
     )
-    if use_openai:
+    if use_openai and os.getenv("OPENAI_API_KEY") is not None:
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+
     memory = ConversationBufferMemory(
         memory_key="chat_history", 
         # input_key="question", 
