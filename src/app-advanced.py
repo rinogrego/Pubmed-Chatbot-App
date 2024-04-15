@@ -26,7 +26,7 @@ st.set_page_config(
 )
 
 st.title("Document Chatbot")
-st.subheader("Chat with your own files.. or scrap papers from Pubmed")
+st.subheader("Chat with your own files.. or scrap papers from PubMed")
 st.markdown("---")
 
 use_openai = False

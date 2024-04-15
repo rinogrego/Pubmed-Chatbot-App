@@ -22,6 +22,14 @@
 - implement knowledge graph maybe
 - display PDF results like PubMed results
 - implement feature for chat to be able to cite reference using IEEE style
+- ngasih feedback ke RAG
+- implement LLM-based RAG keywords
+- minta sample questions buat studi kasus ke mbak shinta
+- design a good prompt based on those references
+- ide dari Pak Risman:
+  - RAG lebih concise, bisa reduce noise dari paper
+  - RAG bisa ngasih referensi sitasi
+  - RAG bisa ngambil context paper berdasarkan gene variant yang baik
 
 ## Problems
 
