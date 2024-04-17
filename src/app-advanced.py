@@ -88,8 +88,12 @@ def compose_keywords(query: str) -> str:
     keywords = ["sugar", "treatment", "young adults"]
     return keywords
 
-def load_abstracts_from_pubmed(keywords: str, doc_num: int = 50) -> pd.DataFrame:
-    df = scrap_pubmed(query=keywords)
+def load_abstracts_from_pubmed(
+    keywords: str, 
+    doc_num: int = 10,
+    retmax: int = 10
+) -> pd.DataFrame:
+    df = scrap_pubmed(query=keywords, retmax=retmax)
     # pubmed_abstracts = df["Abstract"]
     
     bar = st.progress(0, text="Performing similarity search based on the query...")
@@ -169,11 +173,24 @@ def main():
         elif document_choice == "Pubmed Papers":
             st.subheader("Search Relevant Pubmed Papers")
             search_query = st.text_input("**Enter your keywords:**", placeholder="high sugar intake for young adult")
+            col1_sidebar, col2_sidebar = st.columns(2)
+            with col1_sidebar:
+                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[100, 200, 500, 1000])
+            with col2_sidebar:
+                pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100])
             if search_query:
                 st.subheader("Search query entered")
+                st.write(
+                    "Parameter config:<br>Entrez's retmax: {}<br>Num. of docs to filter by similarity: {}".format(pubmed_retmax, pubmed_num_docs_similarity),
+                    unsafe_allow_html=True
+                )
                 with st.spinner("Searching Relevant Papers"):
                     if search_query not in st.session_state.pubmed_papers_keywords:
-                        df_title_abstracts = load_abstracts_from_pubmed(search_query, doc_num=10)
+                        df_title_abstracts = load_abstracts_from_pubmed(
+                            search_query, 
+                            doc_num=pubmed_num_docs_similarity,
+                            retmax=pubmed_retmax,
+                        )
                         paper_titles = df_title_abstracts["Title"]
                         abstracts = df_title_abstracts["Abstract"]
                         st.session_state.pubmed_papers_keywords.append(search_query)
@@ -186,11 +203,11 @@ def main():
                         abstracts = st.session_state.pubmed_papers_scrap_results[search_query]["abstracts"]
   
                     for idx, (title, abs) in enumerate(zip(paper_titles, abstracts)):
-                        st.write(f"Paper Title {idx}: <h3>{title}</h3><p>{abs}</p><hr>", unsafe_allow_html=True)
+                        st.write(f"<h3>[{idx}] {title}</h3><p>{abs}</p><hr>", unsafe_allow_html=True)
                     
                     raw_text = ""
                     for idx, (title, abs) in enumerate(zip(paper_titles, abstracts)):
-                        raw_text += f"Title {idx}: {title}\nAbstract: {abs}\n\n"
+                        raw_text += f"[{idx}]: {title}\nAbstract: {abs}\n\n"
                     
                     # somehow this part is reloaded whenever doing chat so implement checking to prevent resetting session_state
                     if st.session_state.conversation is None:
