@@ -35,6 +35,8 @@ def scrap_pubmed(
     language_list =[]
     pubdate_year_list = []
     pubdate_month_list = []
+    pmid_list = []
+    doi_list = []
     studies = search(query=query, retmax=retmax)
     translation_set = studies["TranslationSet"]
     query_translation = studies["QueryTranslation"]
@@ -70,20 +72,27 @@ def scrap_pubmed(
             journal_list.append(paper['MedlineCitation']['Article']['Journal']['Title'])
             language_list.append(paper['MedlineCitation']['Article']['Language'][0])
             try:
-                pubdate_year_list.append(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Year'])
+                pubdate_year_list.append(int(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Year']))
             except:
-                pubdate_year_list.append('No Data')
+                pubdate_year_list.append(None)
             try:
                 pubdate_month_list.append(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Month'])
             except:
-                pubdate_month_list.append('No Data')
+                pubdate_month_list.append(None)
+            pmid_list.append(int(paper['MedlineCitation']['PMID']))
+            doi = None
+            for elocid in paper['MedlineCitation']['Article']['ELocationID']:
+                if elocid.attributes['EIdType'] == 'doi':
+                    doi = elocid
+                    break
+            doi_list.append(doi)
     bar.empty()
     df = pd.DataFrame(
         list(zip(
-            title_list, abstract_list, journal_list, language_list, pubdate_year_list, pubdate_month_list
+            title_list, abstract_list, journal_list, language_list, pubdate_year_list, pubdate_month_list, pmid_list, doi_list
         )),
         columns=[
-        'Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month'
+        'Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', 'DOI'
     ])
     if save:
         df.to_excel(f"{query.replace(' ', '-')}--pubmed.xlsx", index=False)

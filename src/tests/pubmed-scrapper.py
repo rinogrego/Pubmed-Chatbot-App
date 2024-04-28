@@ -57,34 +57,52 @@ def fetch_details(id_list):
     results = Entrez.read(handle)
     return results
 
-title_list= []
-abstract_list=[]
+title_list = []
+abstract_list = []
 journal_list = []
-language_list =[]
+language_list = []
 pubdate_year_list = []
 pubdate_month_list = []
+pmid_list = []
+doi_list = []
 studies = fetch_details(studiesIdList)
 print("=========== 'Fetch Details' Results ===========")
-pprint.pprint(dict(studies))
+# pprint.pprint(dict(studies))
 print("Keys:\n", dict(studies).keys())
 print("  Keys of PubmedArticle:\n  ", dict(studies['PubmedArticle']).keys())
 print("  Length of PubmedArticle:", len(dict(studies)['PubmedArticle']))
 for article in dict(studies)["PubmedArticle"]:
-    for key, val in article["MedlineCitation"]['Article'].items():
-        print(f"{key} === {val}")
-        if key == "Abstract":
-            print("       length of abstract text:", len(val["AbstractText"]))
-            if len(val["AbstractText"]) > 1:
-                abstract_text = "\n".join([str(text) for text in val['AbstractText']])
-                print("===============")
-                print(abstract_text)
-                print("===============")
+    print(article["MedlineCitation"].keys())
+    print(f"GeneralNote == {article['MedlineCitation']['GeneralNote']}")
+    print(f"OtherAbstract == {article['MedlineCitation']['OtherAbstract']}")
+    print(f"CitationSubset == {article['MedlineCitation']['CitationSubset']}")
+    print(f"KeywordList == {article['MedlineCitation']['KeywordList']}")
+    # print(f"SpaceFlightMission == {article['MedlineCitation']['SpaceFlightMission']}")
+    print(f"OtherID == {article['MedlineCitation']['OtherID']}")
+    print(f"PMID == {type(article['MedlineCitation']['PMID'])}")
+    print(f"DateCompleted == {article['MedlineCitation']['DateCompleted']}")
+    print(f"DateRevised == {article['MedlineCitation']['DateRevised']}")
+    print(f"Article == {article['MedlineCitation']['Article'].keys()}")
+    print(f"Article.ELocationID == {article['MedlineCitation']['Article']['ELocationID']}")
+    for elocid in article['MedlineCitation']['Article']['ELocationID']:
+        if elocid.attributes['EIdType'] == 'doi':
+            print(f"Article.ELocationID.doi == {elocid}")
+    print("-"*50)
+    # for key, val in article["MedlineCitation"]['Article'].items():
+    #     print(f"{key} === {val}")
+    #     if key == "Abstract":
+    #         print("       length of abstract text:", len(val["AbstractText"]))
+    #         if len(val["AbstractText"]) > 1:
+    #             abstract_text = "\n".join([str(text) for text in val['AbstractText']])
+    #             print("===============")
+    #             print(abstract_text)
+    #             print("===============")
             # print("Abstract TExtttt")
             # for text in val["AbstractText"]:
             #     print(text)
     # print(article["PubmedData"].keys())
+print("  Keys of PubmedBookArticle:\n  ", dict(studies)['PubmedBookArticle'])
 print("\n\n")
-# print("  Keys of PubmedBookArticle:\n  ", dict(studies)['PubmedBookArticle'])
 chunk_size = 100
 for chunk_i in range(0, len(studiesIdList), chunk_size):
     print("chunk: {} / {}".format(chunk_i, len(studiesIdList)))
@@ -103,21 +121,29 @@ for chunk_i in range(0, len(studiesIdList), chunk_size):
         journal_list.append(paper['MedlineCitation']['Article']['Journal']['Title'])
         language_list.append(paper['MedlineCitation']['Article']['Language'][0])
         try:
-            pubdate_year_list.append(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Year'])
+            pubdate_year_list.append(int(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Year']))
         except:
             pubdate_year_list.append('No Data')
         try:
             pubdate_month_list.append(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Month'])
         except:
             pubdate_month_list.append('No Data')
+        pmid_list.append(int(paper['MedlineCitation']['PMID']))
+        doi = ''
+        for elocid in paper['MedlineCitation']['Article']['ELocationID']:
+            if elocid.attributes['EIdType'] == 'doi':
+                doi = elocid
+                break
+        doi_list.append(doi)
 df = pd.DataFrame(list(zip(
-    title_list, abstract_list, journal_list, language_list, pubdate_year_list, pubdate_month_list
+    title_list, abstract_list, journal_list, language_list, pubdate_year_list, pubdate_month_list, pmid_list, doi_list
 )),
 columns=[
-    'Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month'
+    'Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', "DOI"
 ])
 
 print("=========== Dataframe info ===========")
 print(df.shape)
 print(df.sample(5))
+print(df.info())
 df.to_excel(f"{query}-pubmed.xlsx", index=False)

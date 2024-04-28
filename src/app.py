@@ -1,6 +1,8 @@
 import streamlit as st
 
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.prompts.chat import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
+from langchain_core.prompts.prompt import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -9,7 +11,7 @@ from langchain.chains.conversational_retrieval.base import ConversationalRetriev
 
 from pypdf import PdfReader
 from langchain.docstore.document import Document
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
 
 import os
 from dotenv import load_dotenv
@@ -44,21 +46,34 @@ def get_pdf_text(pdf_docs) -> Tuple[str, Document]:
             docs.append(Document(page_content=page_text, metadata={'page': page.page_number}))
     return text, docs
 
-def get_text_chunks(text: str) -> List[str]:
-    text_splitter = CharacterTextSplitter(
-        separator="/n",
+def get_text_chunks(text: str):
+    # text_splitter = CharacterTextSplitter(
+    #     separator="/n",
+    #     chunk_size=2000,
+    #     chunk_overlap=200,
+    #     length_function=len
+    # )
+    # chunks = text_splitter.split_text(text)
+    text_splitter = RecursiveCharacterTextSplitter(
+        separators=["\n\n\n", "\n\n", "\n"],
         chunk_size=2000,
         chunk_overlap=200,
         length_function=len
     )
-    chunks = text_splitter.split_text(text)
-    return chunks
+    docs = text_splitter.create_documents([text])
+    docs = text_splitter.split_documents(documents=docs)
+    # print(type(docs))
+    # print(len(docs))
+    # print(type(docs[0]))
+    # print(docs[0])
+    return docs
 
-def get_vectorstore(text_chunks: List[str]):
+def get_vectorstore(docs):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=os.getenv("GOOGLE_API_KEY"))
     if use_openai and os.getenv("OPENAI_API_KEY") is not None:
         embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
-    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    # vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    vectorstore = FAISS.from_documents(documents=docs, embedding=embeddings)
     return vectorstore
 
 def get_conversation_chain(vectorstore):
@@ -72,24 +87,45 @@ def get_conversation_chain(vectorstore):
 
     memory = ConversationBufferMemory(
         memory_key="chat_history", 
-        # input_key="question", 
-        # output_key="answer", 
+        input_key="question",
+        output_key="answer", # because issue: https://github.com/langchain-ai/langchain/issues/2303#issuecomment-1508973646
         return_messages=True
     )
+    ### SYSTEM PROMPT
+    # from: https://github.com/langchain-ai/langchain/issues/5462#issuecomment-1569923207
+    system_template = """Use the following pieces of context to answer the users question. 
+    If you cannot find the answer from the pieces of context, just say that you don't know, don't try to make up an answer.
+    The context given is a scrapped paper abstract and its title, given a number format. Always cite the source of your answer by using [number of paper].
+    ----------------
+    {context}"""
+    messages = [
+        SystemMessagePromptTemplate.from_template(system_template),
+        HumanMessagePromptTemplate.from_template("{question}")
+    ]
+    qa_prompt = ChatPromptTemplate.from_messages(messages)
+    ### CONDENSE QUESTION PROMPT
+    # from: https://github.com/langchain-ai/langchain/issues/4076#issuecomment-1563138403
+    condense_question_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question. Preserve the original question in the answer setiment during rephrasing.
+    Chat History:
+    {chat_history}
+    Follow Up Input: {question}
+    Standalone question:"""
+    condense_question_prompt = PromptTemplate.from_template(condense_question_template)
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=vectorstore.as_retriever(),
-        memory=memory
+        retriever=vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 3}),
+        memory=memory,
+        return_source_documents=True,
+        combine_docs_chain_kwargs={"prompt": qa_prompt},
+        condense_question_prompt=condense_question_prompt
+        
     )
     return conversation_chain
     
-def compose_keywords(query: str) -> str:
-    # use llm to create keywords to answer question related
-    keywords = ["sugar", "treatment", "young adults"]
-    return keywords
-
-# def clean_pdf_text(pdf: PdfReader) -> PdfReader | str:
-#     return ""
+# def compose_keywords(query: str) -> str:
+#     # use llm to create keywords to answer question related
+#     keywords = ["sugar", "treatment", "young adults"]
+#     return keywords
 
 # def retrieve_relevant_paper():
 #     # get relevant paper inside database based on query
@@ -98,11 +134,6 @@ def compose_keywords(query: str) -> str:
 # def retrieve_relevant_texts_from_paper(text: str, query: str):
 #     # given a text/paper, retrieve k texts that are most likely to answer given query
 #     return ""
-
-# def get_vectorstore_documents():
-    
-#     vectorstore = ...
-#     return vectorstore
 
 def load_abstracts_from_pubmed(
     keywords: str, 
@@ -130,7 +161,8 @@ def load_abstracts_from_pubmed(
     dot_products = np.dot(np.stack(df['Abstract Embeddings']), qe)
     idx = np.argsort(-dot_products)[:doc_num] # sort indexes from index with the highest value to the lowest
     bar.empty()
-    return df.iloc[idx][['Title', 'Abstract']] # Return text with the associated indexes
+    # df.columns: ['Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', 'DOI']
+    return df.iloc[idx][['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']] # Return text with the associated indexes
 
 def main():
     if "conversation" not in st.session_state:
@@ -207,28 +239,42 @@ def main():
                             doc_num=pubmed_num_docs_similarity,
                             retmax=pubmed_retmax,
                         )
-                        paper_titles = df_title_abstracts["Title"]
-                        abstracts = df_title_abstracts["Abstract"]
                         st.session_state.pubmed_papers_keywords.append(search_query)
                         st.session_state.pubmed_papers_scrap_results[search_query] = {
-                            "paper_titles": paper_titles,
-                            "abstracts": abstracts
+                            "df_title_abstracts": df_title_abstracts
                         } 
                     else:
-                        paper_titles = st.session_state.pubmed_papers_scrap_results[search_query]["paper_titles"]
-                        abstracts = st.session_state.pubmed_papers_scrap_results[search_query]["abstracts"]
-  
-                    for idx, (title, abs) in enumerate(zip(paper_titles, abstracts)):
-                        st.write(f"<h3>[{idx}] {title}</h3><p>{abs}</p><hr>", unsafe_allow_html=True)
+                        df_title_abstracts = st.session_state.pubmed_papers_scrap_results[search_query]["df_title_abstracts"]
+                    paper_titles = df_title_abstracts["Title"]
+                    abstracts = df_title_abstracts["Abstract"]
+                    journals = df_title_abstracts['Journal']
+                    years = df_title_abstracts['Year']
+                    months = df_title_abstracts['Month']
+                    pmids = df_title_abstracts['PMID']
+                    dois = df_title_abstracts['DOI']
+                    for idx, (title, abs, journal, year, month, pmid, doi) in enumerate(zip(paper_titles, abstracts, journals, years, months, pmids, dois)):
+                        st.write(
+                            f"""<h3>[{idx}] {title}</h3>
+                            <p>{abs}</p>
+                            <p>
+                                Journal : {journal} <br>
+                                Date &emsp;&nbsp;: {month}, {year} <br>
+                                PMID &emsp;: <a href="https://pubmed.ncbi.nlm.nih.gov/{pmid}/">{pmid}</a><br>
+                                doi&emsp;&emsp;: <a href="https://www.doi.org/{doi}">{doi}</a>
+                            </p>
+                            <hr>""", 
+                            unsafe_allow_html=True
+                        )
                     
+                    # constructing raw text for contexts to create vectorstore
+                    # NOTE: may change this method into create a Document object for each paper and its metadata
                     raw_text = ""
                     for idx, (title, abs) in enumerate(zip(paper_titles, abstracts)):
-                        raw_text += f"[{idx}]: {title}\nAbstract: {abs}\n\n"
-                    
+                        raw_text += f"[{idx}] Title: {title}\nAbstract:\n{abs}\n\n"
                     # somehow this part is reloaded whenever doing chat so implement checking to prevent resetting session_state
                     if st.session_state.conversation is None:
-                        text_chunks = get_text_chunks(raw_text)
-                        vectorstore = get_vectorstore(text_chunks)
+                        docs = get_text_chunks(raw_text)
+                        vectorstore = get_vectorstore(docs)
                         st.session_state.conversation = get_conversation_chain(vectorstore)
 
 if __name__ == "__main__":
