@@ -10,7 +10,7 @@ parser.add_argument('--retmax', type=int, help="Specify Entrez.esearch's retmax 
 args = parser.parse_args()
 query = 'high sugar effect' if args.query is None else args.query
 print("Query    :", query)
-retmax = 1000 if args.retmax is None else args.retmax
+retmax = 10 if args.retmax is None else args.retmax
 print("Retmax   :", retmax)
 
 # from: https://medium.com/@felipe.odorcyk/scrapping-data-from-pubmed-database-78a9b53de8ca
@@ -27,9 +27,24 @@ def search(query='COVID-19'):
     return results
 
 studies = search(query)
+translation_set = studies["TranslationSet"]
+query_translation = studies["QueryTranslation"]
+print("dict(studies):")
 pprint.pprint(dict(studies))
+print("\n")
+print("dict(studies).key():")
 pprint.pprint(dict(studies).keys())
-print(len(studies["IdList"]))
+print("\n")
+print("Details:")
+print(f"len(studies['IdList']): {len(studies['IdList'])}")
+print(f"Translation Set: (data type: {type(translation_set)})")
+for translation in translation_set:
+    pprint.pprint(translation)
+# pprint.pprint(translation_set[0])
+print()
+print(f"Query Translation: (data type: {type(query_translation)})")
+pprint.pprint(query_translation)
+print("\n\n")
 studiesIdList = studies['IdList']
 
 def fetch_details(id_list):
@@ -49,6 +64,27 @@ language_list =[]
 pubdate_year_list = []
 pubdate_month_list = []
 studies = fetch_details(studiesIdList)
+print("=========== 'Fetch Details' Results ===========")
+pprint.pprint(dict(studies))
+print("Keys:\n", dict(studies).keys())
+print("  Keys of PubmedArticle:\n  ", dict(studies['PubmedArticle']).keys())
+print("  Length of PubmedArticle:", len(dict(studies)['PubmedArticle']))
+for article in dict(studies)["PubmedArticle"]:
+    for key, val in article["MedlineCitation"]['Article'].items():
+        print(f"{key} === {val}")
+        if key == "Abstract":
+            print("       length of abstract text:", len(val["AbstractText"]))
+            if len(val["AbstractText"]) > 1:
+                abstract_text = "\n".join([str(text) for text in val['AbstractText']])
+                print("===============")
+                print(abstract_text)
+                print("===============")
+            # print("Abstract TExtttt")
+            # for text in val["AbstractText"]:
+            #     print(text)
+    # print(article["PubmedData"].keys())
+print("\n\n")
+# print("  Keys of PubmedBookArticle:\n  ", dict(studies)['PubmedBookArticle'])
 chunk_size = 100
 for chunk_i in range(0, len(studiesIdList), chunk_size):
     print("chunk: {} / {}".format(chunk_i, len(studiesIdList)))
@@ -57,7 +93,11 @@ for chunk_i in range(0, len(studiesIdList), chunk_size):
     for i, paper in enumerate(papers['PubmedArticle']):
         title_list.append(paper['MedlineCitation']['Article']['ArticleTitle'])
         try:
-            abstract_list.append(paper['MedlineCitation']['Article']['Abstract']['AbstractText'][0])
+            if len(paper['MedlineCitation']['Article']['Abstract']['AbstractText']) == 1:
+                abstract_list.append(paper['MedlineCitation']['Article']['Abstract']['AbstractText'][0])
+            else:
+                abstract_text = "\n".join([str(text) for text in paper['MedlineCitation']['Article']['Abstract']['AbstractText']])
+                abstract_list.append(abstract_text)
         except:
             abstract_list.append('No Abstract')
         journal_list.append(paper['MedlineCitation']['Article']['Journal']['Title'])
@@ -77,5 +117,7 @@ columns=[
     'Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month'
 ])
 
+print("=========== Dataframe info ===========")
+print(df.shape)
 print(df.sample(5))
 df.to_excel(f"{query}-pubmed.xlsx", index=False)

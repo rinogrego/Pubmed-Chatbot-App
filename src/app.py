@@ -30,7 +30,7 @@ st.subheader("Chat with your own files.. or scrap papers from PubMed")
 st.markdown("---")
 
 use_openai = True
-    
+
 def get_pdf_text(pdf_docs) -> Tuple[str, Document]:
     # from: https://stackoverflow.com/a/76816979/13283654
     # process pdf_docs to langchain's Document object
@@ -82,11 +82,27 @@ def get_conversation_chain(vectorstore):
         memory=memory
     )
     return conversation_chain
-
+    
 def compose_keywords(query: str) -> str:
     # use llm to create keywords to answer question related
     keywords = ["sugar", "treatment", "young adults"]
     return keywords
+
+# def clean_pdf_text(pdf: PdfReader) -> PdfReader | str:
+#     return ""
+
+# def retrieve_relevant_paper():
+#     # get relevant paper inside database based on query
+#     return ""
+
+# def retrieve_relevant_texts_from_paper(text: str, query: str):
+#     # given a text/paper, retrieve k texts that are most likely to answer given query
+#     return ""
+
+# def get_vectorstore_documents():
+    
+#     vectorstore = ...
+#     return vectorstore
 
 def load_abstracts_from_pubmed(
     keywords: str, 
@@ -175,7 +191,7 @@ def main():
             search_query = st.text_input("**Enter your keywords:**", placeholder="high sugar intake for young adult")
             col1_sidebar, col2_sidebar = st.columns(2)
             with col1_sidebar:
-                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[100, 200, 500, 1000])
+                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 100, 200, 500, 1000])
             with col2_sidebar:
                 pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100])
             if search_query:

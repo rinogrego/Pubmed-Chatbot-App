@@ -3,7 +3,8 @@ from Bio import Entrez
 import pandas as pd
 
 def search(query, retmax=100):
-    Entrez.email = 'email@example.com'
+    # Entrez.email = 'email@example.com'
+    Entrez.email = 'rinogrego1212@gmail.com'
     handle = Entrez.esearch(db='pubmed',
         sort='relevance',
         retmax=f"{retmax}",
@@ -15,7 +16,7 @@ def search(query, retmax=100):
 
 def fetch_details(id_list):
     ids = ','.join(id_list)
-    Entrez.email = 'email@example.com'
+    Entrez.email = 'rinogrego1212@gmail.com'
     handle = Entrez.efetch(db='pubmed',
         retmode='xml',
         id=ids
@@ -35,12 +36,20 @@ def scrap_pubmed(
     pubdate_year_list = []
     pubdate_month_list = []
     studies = search(query=query, retmax=retmax)
+    translation_set = studies["TranslationSet"]
+    query_translation = studies["QueryTranslation"]
     studiesIdList = studies['IdList']
     studies = fetch_details(studiesIdList)
     
     chunk_size = retmax//10
     
     import streamlit as st
+    st.write(f"<h3>Keywords:</h3>{query}", unsafe_allow_html=True)
+    st.write(f"<h3>Translation Set:</h3>", unsafe_allow_html=True)
+    for translation in translation_set:
+        st.write(f"<p>{translation['From']} => {translation['To']}</p>", unsafe_allow_html=True)
+    st.write(f"<h3>Query Translation:</h3>{query_translation}<hr>", unsafe_allow_html=True)
+    
     progress_text = "Fetching..."
     bar = st.progress(0, text=progress_text)
     for chunk_i in range(0, len(studiesIdList), chunk_size):
@@ -51,7 +60,11 @@ def scrap_pubmed(
         for i, paper in enumerate(papers['PubmedArticle']):
             title_list.append(paper['MedlineCitation']['Article']['ArticleTitle'])
             try:
-                abstract_list.append(paper['MedlineCitation']['Article']['Abstract']['AbstractText'][0])
+                if len(paper['MedlineCitation']['Article']['Abstract']['AbstractText']) == 1:
+                    abstract_list.append(paper['MedlineCitation']['Article']['Abstract']['AbstractText'][0])
+                else:
+                    abstract_text = "\n".join([str(text) for text in paper['MedlineCitation']['Article']['Abstract']['AbstractText']])
+                    abstract_list.append(abstract_text)
             except:
                 abstract_list.append('No Abstract')
             journal_list.append(paper['MedlineCitation']['Article']['Journal']['Title'])
@@ -64,7 +77,7 @@ def scrap_pubmed(
                 pubdate_month_list.append(paper['MedlineCitation']['Article']['Journal']['JournalIssue']['PubDate']['Month'])
             except:
                 pubdate_month_list.append('No Data')
-    bar.empty()                
+    bar.empty()
     df = pd.DataFrame(
         list(zip(
             title_list, abstract_list, journal_list, language_list, pubdate_year_list, pubdate_month_list
