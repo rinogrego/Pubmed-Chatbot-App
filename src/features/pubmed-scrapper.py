@@ -202,7 +202,8 @@ for query in queries:
     print(df.info())
 
     import os
-    filename = f"{query}_pubmed-abstracts.xlsx"
+    query_filename = query.replace(" ", "-")
+    filename = f"{query_filename}_pubmed-abstracts.xlsx"
     filepath = os.path.join(target_folder, filename)
     if not os.path.exists(target_folder):
         os.makedirs(target_folder)
