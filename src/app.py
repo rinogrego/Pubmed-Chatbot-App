@@ -17,7 +17,7 @@ import os
 from dotenv import load_dotenv
 
 from typing import Tuple, List
-from .utils.scrap_pubmed_papers import scrap_pubmed
+from utils.scrap_pubmed_papers import scrap_pubmed
 import pandas as pd
 
 load_dotenv()
