@@ -83,7 +83,7 @@ def get_conversation_chain(vectorstore):
         convert_system_message_to_human=True 
     )
     if use_openai and os.getenv("OPENAI_API_KEY") is not None:
-        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
 
     memory = ConversationBufferMemory(
         memory_key="chat_history", 
@@ -166,12 +166,17 @@ def load_abstracts_from_pubmed(
 
 def main():
     if "conversation" not in st.session_state:
+        print("Initialize conversation")
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
+        print("Initialize chat_history")
         st.session_state.chat_history = []
     if "pubmed_papers_keywords" not in st.session_state:
+        print("Initialize pubmed_papers_keywords and pubmed_papers_scrap_results")
         st.session_state.pubmed_papers_keywords = []
         st.session_state.pubmed_papers_scrap_results = {}
+        
+    print(st.session_state.conversation)
     
     # user input
     user_query = st.chat_input("What's on your mind?")

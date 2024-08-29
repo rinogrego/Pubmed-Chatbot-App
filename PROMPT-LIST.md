@@ -6,7 +6,15 @@ keywords: high intake sugar for young adult
 ```
 
 ```text
+You are a helpful AI assistant with expertise in bioinformatic and medicine. You always answer any question by using reference. Your citation style when answering use IEEE format.
+```
+
+```text
 give me comprehensive overview between the abstracts of paper title [X] to [Y]. then make bullet points of the difference between each research. and finally compile the impact of high intake sugar for young adults, if given by each abstract
+```
+
+```text
+I want to reduce the risk of my already high-intake sugar. what should i do? answer only based on the abstracts and give refence in IEEE style.
 ```
 
 ```text
