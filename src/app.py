@@ -166,13 +166,13 @@ def load_abstracts_from_pubmed(
 
 def main():
     if "conversation" not in st.session_state:
-        print("Initialize conversation")
+        # print("Initialize conversation")
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
-        print("Initialize chat_history")
+        # print("Initialize chat_history")
         st.session_state.chat_history = []
     if "pubmed_papers_keywords" not in st.session_state:
-        print("Initialize pubmed_papers_keywords and pubmed_papers_scrap_results")
+        # print("Initialize pubmed_papers_keywords and pubmed_papers_scrap_results")
         st.session_state.pubmed_papers_keywords = []
         st.session_state.pubmed_papers_scrap_results = {}
     

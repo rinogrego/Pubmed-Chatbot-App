@@ -1,6 +1,56 @@
 # Pubmed-Chatbot-App
 
-PubMed paper abstracts chatbot application utilizing Google Gemini's API
+PubMed paper abstracts chatbot application utilizing Google Gemini's API for document filtering
+
+## Installation
+
+1. First create a project folder (example project folder name: PROJECT_NAME) and go inside the folder
+2. Clone the repository
+
+```
+    git clone https://github.com/rinogrego/Pubmed-Chatbot-App/
+```
+
+3. Initiate python virtual environment
+
+```
+    python -m venv venv
+```
+
+4. Install the necessary packages
+
+```
+    pip install -r requirements.txt
+```
+
+5. Create a new `.env` file to store the environment keys and fill the following necessary keys:
+
+```
+    GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+    OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+
+    LANGCHAIN_TRACING_V2=true
+    LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+    LANGCHAIN_API_KEY=YOUR_LANGCHAIN_API_KEY
+    LANGCHAIN_PROJECT=YOUR_LANGCHAIN_PROJECT_NAME
+```
+
+6. Run the web server using the following code
+
+```
+    streamlit run src/app.py
+```
+
+## Chatbot Features
+
+- Pubmed Scraper for RAG
+  - `retmax`: parameter for number of abstracts scrapped from PubMed
+- Filter scrapped abstracts using Cosine Similarity of Google's Embedding
+  - `pubmed_num_docs_similarity`: parameter for Top K number of similar documents according to query
+- Retrieval-Augmented Generation on abstracts that have been filtered
+  - currently the retriever is only set with `k=3` and use `mmr` search type
+- PDF-option for RAG [NOT IMPLEMENTED]
+- Medical-specialized prompt [NOT IMPLEMENTED]
 
 ## Example
 
@@ -17,12 +67,6 @@ saya mengalami gejala batuk dan pilek. bagaimana cara mengatasinya?
 AI:
 berikut beberapa metode
 ```
-
-## Chatbot Features
-
-- medical-specialized prompt
-- pubmed scraper for RAG
-- pdf-option for context
 
 ## RAG Diagram
 
