@@ -56,8 +56,8 @@ def get_text_chunks(text: str):
     # chunks = text_splitter.split_text(text)
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n\n", "\n\n", "\n"],
-        chunk_size=2000,
-        chunk_overlap=200,
+        chunk_size=4000,
+        chunk_overlap=400,
         length_function=len
     )
     docs = text_splitter.create_documents([text])
@@ -240,11 +240,11 @@ def main():
             search_query = st.text_input("**Enter your keywords:**", placeholder="high sugar intake for young adult")
             col1_sidebar, col2_sidebar, col3_sidebar = st.columns(3)
             with col1_sidebar:
-                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 50])
+                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 50, 100, 200])
             with col2_sidebar:
-                pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100, 200])
+                pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100])
             with col3_sidebar:
-                k_docs_for_rag = st.radio("RAG contexts", key="k_docs_for_rag", options=[3, 5, 7, 10])
+                k_docs_for_rag = st.radio("RAG contexts", key="k_docs_for_rag", options=[3, 5, 7, 10, 15, 20])
             if search_query:
                 st.subheader("Search query entered")
                 st.write(
