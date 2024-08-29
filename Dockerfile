@@ -15,5 +15,7 @@ COPY . .
 
 EXPOSE 5000
 
+WORKDIR /src
+
 # Command to run the application
 CMD ["streamlit", "src/app.py"]
