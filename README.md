@@ -20,7 +20,7 @@ PubMed paper abstracts chatbot application utilizing Google Gemini's API for doc
 4. Install the necessary packages
 
 ```
-    pip install -r requirements.txt
+    pip install -r src/requirements.txt
 ```
 
 5. Create a new `.env` file to store the environment keys and fill the following necessary keys:

@@ -76,13 +76,23 @@ def get_vectorstore(docs):
     vectorstore = FAISS.from_documents(documents=docs, embedding=embeddings)
     return vectorstore
 
-def get_conversation_chain(vectorstore):
+def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
     llm = ChatGoogleGenerativeAI(
         model="gemini-pro", google_api_key=os.getenv("GOOGLE_API_KEY"), 
         # ValueError: SystemMessages are not yet supported! To automatically convert the leading SystemMessage to a HumanMessage, set `convert_system_message_to_human` to True. Example: llm = ChatGoogleGenerativeAI(model="gemini-pro", convert_system_message_to_human=True)
         convert_system_message_to_human=True 
     )
     if use_openai and os.getenv("OPENAI_API_KEY") is not None:
+        # if openai_api_key is not None:
+        #     try:
+        #         llm = ChatOpenAI(model="gpt-4o", temperature=0.7, api_key=openai_api_key)
+        #         message = "API_KEY is correct. Using gpt-4o model."
+        #     except:
+        #         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        #         message = "API_KEY is incorrect. Using gpt-4o-mini model."
+        # else:
+        #     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        #     message = "API_KEY is not provided. Using gpt-4o-mini model."
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
 
     memory = ConversationBufferMemory(
@@ -113,7 +123,7 @@ def get_conversation_chain(vectorstore):
     condense_question_prompt = PromptTemplate.from_template(condense_question_template)
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 3}),
+        retriever=vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": k_docs_for_rag}),
         memory=memory,
         return_source_documents=True,
         combine_docs_chain_kwargs={"prompt": qa_prompt},
@@ -198,17 +208,21 @@ def main():
             ["My Own Files", "Pubmed Papers"],
             captions = ["Upload your own documents", "Search through pubmed papers"]
         )
+        # st.markdown("---")
+        # st.subheader("Model Option")
+        # openai_api_key = st.text_input("**Decide your OpenAI model by providing your API:**")
         st.markdown("---")
         if document_choice == "My Own Files":
             st.subheader("File Uploader")
             pdf_docs = st.file_uploader("**Upload your PDFs here and click on Process**", accept_multiple_files=True)
+            st.write("**WARNING**: The citation prompt is still bad")
             if pdf_docs:
                 if st.button("Process"):
                     with st.spinner("Processing"):
                         raw_text, documents = get_pdf_text(pdf_docs)
                         text_chunks = get_text_chunks(raw_text)
                         vectorstore = get_vectorstore(text_chunks)
-                        st.session_state.conversation = get_conversation_chain(vectorstore)
+                        st.session_state.conversation = get_conversation_chain(vectorstore, k_docs_for_rag = 5)
                         
                         # # print relevant page
                         # page_num = 5
@@ -224,15 +238,17 @@ def main():
         elif document_choice == "Pubmed Papers":
             st.subheader("Search Relevant Pubmed Papers")
             search_query = st.text_input("**Enter your keywords:**", placeholder="high sugar intake for young adult")
-            col1_sidebar, col2_sidebar = st.columns(2)
+            col1_sidebar, col2_sidebar, col3_sidebar = st.columns(3)
             with col1_sidebar:
-                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 100, 200, 500, 1000])
+                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 50])
             with col2_sidebar:
-                pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100])
+                pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100, 200])
+            with col3_sidebar:
+                k_docs_for_rag = st.radio("RAG contexts", key="k_docs_for_rag", options=[3, 5, 7, 10])
             if search_query:
                 st.subheader("Search query entered")
                 st.write(
-                    "Parameter config:<br>Entrez's retmax: {}<br>Num. of docs to filter by similarity: {}".format(pubmed_retmax, pubmed_num_docs_similarity),
+                    "Parameter config:<br>Entrez's retmax: {}<br>Num. of docs to filter by similarity: {}<br>Num. of docs for RAG contexts: {}".format(pubmed_retmax, pubmed_num_docs_similarity, k_docs_for_rag),
                     unsafe_allow_html=True
                 )
                 with st.spinner("Searching Relevant Papers"):
@@ -278,7 +294,7 @@ def main():
                     if st.session_state.conversation is None:
                         docs = get_text_chunks(raw_text)
                         vectorstore = get_vectorstore(docs)
-                        st.session_state.conversation = get_conversation_chain(vectorstore)
+                        st.session_state.conversation = get_conversation_chain(vectorstore, k_docs_for_rag)
 
 if __name__ == "__main__":
     main()
