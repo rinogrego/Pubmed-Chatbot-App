@@ -175,8 +175,6 @@ def main():
         print("Initialize pubmed_papers_keywords and pubmed_papers_scrap_results")
         st.session_state.pubmed_papers_keywords = []
         st.session_state.pubmed_papers_scrap_results = {}
-        
-    print(st.session_state.conversation)
     
     # user input
     user_query = st.chat_input("What's on your mind?")
