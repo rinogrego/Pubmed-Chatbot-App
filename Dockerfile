@@ -13,9 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code into the container
 COPY . .
 
-EXPOSE 5000
-
-WORKDIR /src
+EXPOSE 8080
 
 # Command to run the application
 CMD ["streamlit", "run", "src/app.py", "--server.port", "8080"]
