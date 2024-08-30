@@ -1,6 +1,6 @@
 # Pubmed-Chatbot-App
 
-PubMed paper abstracts chatbot application utilizing Google Gemini's API for document filtering
+PubMed paper abstracts chatbot application utilizing ChatGPT's models.
 
 ## Installation
 
@@ -45,7 +45,7 @@ PubMed paper abstracts chatbot application utilizing Google Gemini's API for doc
 
 - Pubmed Scraper for RAG
   - `retmax`: parameter for number of abstracts scrapped from PubMed
-- Filter scrapped abstracts using Cosine Similarity of Google's Embedding
+- [DISABLED] Filter scrapped abstracts using Cosine Similarity of Google's Embedding
   - `pubmed_num_docs_similarity`: parameter for Top K number of similar documents according to query
 - Retrieval-Augmented Generation on abstracts that have been filtered
   - currently the retriever is only set with `k=3` and use `mmr` search type

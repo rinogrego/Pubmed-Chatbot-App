@@ -115,7 +115,7 @@ def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
     qa_prompt = ChatPromptTemplate.from_messages(messages)
     ### CONDENSE QUESTION PROMPT
     # from: https://github.com/langchain-ai/langchain/issues/4076#issuecomment-1563138403
-    condense_question_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question. Preserve the original question in the answer setiment during rephrasing.
+    condense_question_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question. Preserve the original question in the answer sentiment during rephrasing.
     Chat History:
     {chat_history}
     Follow Up Input: {question}
@@ -147,32 +147,31 @@ def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
 
 def load_abstracts_from_pubmed(
     keywords: str, 
-    doc_num: int = 10,
     retmax: int = 10
 ) -> pd.DataFrame:
     df = scrap_pubmed(query=keywords, retmax=retmax)
-    # pubmed_abstracts = df["Abstract"]
     
-    bar = st.progress(0, text="Performing similarity search based on the query...")
-    # embed documents
-    def embed_fn(title, text):
-        return GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
-            task_type="retrieval_document",
-            google_api_key=os.getenv('GOOGLE_API_KEY')
-        ).embed_query(text=text)
-    df["Abstract Embeddings"] = df.apply(lambda row: embed_fn(row["Title"], row["Abstract"]), axis=1)
+    # bar = st.progress(0, text="Performing similarity search based on the query...")
+    # # embed documents
+    # def embed_fn(title, text):
+    #     return GoogleGenerativeAIEmbeddings(
+    #         model="models/embedding-001",
+    #         task_type="retrieval_document",
+    #         google_api_key=os.getenv('GOOGLE_API_KEY')
+    #     ).embed_query(text=text)
+    # df["Abstract Embeddings"] = df.apply(lambda row: embed_fn(row["Title"], row["Abstract"]), axis=1)
     
-    query_embedding = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001", task_type="retrieval_query", google_api_key=os.getenv('GOOGLE_API_KEY')
-    )
-    qe = query_embedding.embed_query(keywords)
-    import numpy as np
-    dot_products = np.dot(np.stack(df['Abstract Embeddings']), qe)
-    idx = np.argsort(-dot_products)[:doc_num] # sort indexes from index with the highest value to the lowest
-    bar.empty()
-    # df.columns: ['Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', 'DOI']
-    return df.iloc[idx][['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']] # Return text with the associated indexes
+    # query_embedding = GoogleGenerativeAIEmbeddings(
+    #     model="models/embedding-001", task_type="retrieval_query", google_api_key=os.getenv('GOOGLE_API_KEY')
+    # )
+    # qe = query_embedding.embed_query(keywords)
+    # import numpy as np
+    # dot_products = np.dot(np.stack(df['Abstract Embeddings']), qe)
+    # idx = np.argsort(-dot_products)[:doc_num] # sort indexes from index with the highest value to the lowest
+    # bar.empty()
+    # # df.columns: ['Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', 'DOI']
+    # return df.iloc[idx][['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']] # Return text with the associated indexes
+    return df[['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']]
 
 def main():
     if "conversation" not in st.session_state:
@@ -238,24 +237,21 @@ def main():
         elif document_choice == "Pubmed Papers":
             st.subheader("Search Relevant Pubmed Papers")
             search_query = st.text_input("**Enter your keywords:**", placeholder="high sugar intake for young adult")
-            col1_sidebar, col2_sidebar, col3_sidebar = st.columns(3)
+            col1_sidebar, col2_sidebar = st.columns(2)
             with col1_sidebar:
-                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 50, 100, 200])
+                pubmed_retmax = st.radio("Retmax", key="pubmed_retmax", options=[10, 20, 50, 100])
             with col2_sidebar:
-                pubmed_num_docs_similarity = st.radio("Filter by Similarity", key="pubmed_num_docs_similarity", options=[10, 20, 50, 100])
-            with col3_sidebar:
-                k_docs_for_rag = st.radio("RAG contexts", key="k_docs_for_rag", options=[3, 5, 7, 10, 15, 20])
+                k_docs_for_rag = st.radio("RAG contexts", key="k_docs_for_rag", options=[5, 10, 20, 50])
             if search_query:
                 st.subheader("Search query entered")
                 st.write(
-                    "Parameter config:<br>Entrez's retmax: {}<br>Num. of docs to filter by similarity: {}<br>Num. of docs for RAG contexts: {}".format(pubmed_retmax, pubmed_num_docs_similarity, k_docs_for_rag),
+                    "Parameter config:<br>Entrez's retmax: {}<br>Num. of docs for RAG contexts: {}".format(pubmed_retmax, k_docs_for_rag),
                     unsafe_allow_html=True
                 )
                 with st.spinner("Searching Relevant Papers"):
                     if search_query not in st.session_state.pubmed_papers_keywords:
                         df_title_abstracts = load_abstracts_from_pubmed(
                             search_query, 
-                            doc_num=pubmed_num_docs_similarity,
                             retmax=pubmed_retmax,
                         )
                         st.session_state.pubmed_papers_keywords.append(search_query)
