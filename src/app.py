@@ -5,6 +5,7 @@ from langchain_core.prompts.chat import ChatPromptTemplate, HumanMessagePromptTe
 from langchain_core.prompts.prompt import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import FAISS
 from langchain.memory import ConversationBufferMemory
 from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
@@ -12,6 +13,7 @@ from langchain.chains.conversational_retrieval.base import ConversationalRetriev
 from pypdf import PdfReader
 from langchain.docstore.document import Document
 from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
+from langchain.retrievers import EnsembleRetriever
 
 import os
 from dotenv import load_dotenv
@@ -47,13 +49,6 @@ def get_pdf_text(pdf_docs) -> Tuple[str, Document]:
     return text, docs
 
 def get_text_chunks(text: str):
-    # text_splitter = CharacterTextSplitter(
-    #     separator="/n",
-    #     chunk_size=2000,
-    #     chunk_overlap=200,
-    #     length_function=len
-    # )
-    # chunks = text_splitter.split_text(text)
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n\n", "\n\n", "\n"],
         chunk_size=4000,
@@ -62,37 +57,31 @@ def get_text_chunks(text: str):
     )
     docs = text_splitter.create_documents([text])
     docs = text_splitter.split_documents(documents=docs)
-    # print(type(docs))
-    # print(len(docs))
-    # print(type(docs[0]))
-    # print(docs[0])
     return docs
 
-def get_vectorstore(docs):
+def get_retriever(docs, k_docs_for_rag):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=os.getenv("GOOGLE_API_KEY"))
     if use_openai and os.getenv("OPENAI_API_KEY") is not None:
-        embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
-    # vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+        embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     vectorstore = FAISS.from_documents(documents=docs, embedding=embeddings)
-    return vectorstore
+    
+    # from: https://medium.com/@nadikapoudel16/advanced-rag-implementation-using-hybrid-search-reranking-with-zephyr-alpha-llm-4340b55fef22
+    retriever_vectordb = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": k_docs_for_rag})
+    keyword_retriever = BM25Retriever.from_documents(docs)
+    keyword_retriever.k =  k_docs_for_rag
+    retriever = EnsembleRetriever(
+        retrievers = [retriever_vectordb, keyword_retriever],
+        weights = [0.5, 0.5]
+    )
+    return retriever
 
-def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
+def get_conversation_chain(retriever, openai_api_key=None):
     llm = ChatGoogleGenerativeAI(
         model="gemini-pro", google_api_key=os.getenv("GOOGLE_API_KEY"), 
         # ValueError: SystemMessages are not yet supported! To automatically convert the leading SystemMessage to a HumanMessage, set `convert_system_message_to_human` to True. Example: llm = ChatGoogleGenerativeAI(model="gemini-pro", convert_system_message_to_human=True)
         convert_system_message_to_human=True 
     )
     if use_openai and os.getenv("OPENAI_API_KEY") is not None:
-        # if openai_api_key is not None:
-        #     try:
-        #         llm = ChatOpenAI(model="gpt-4o", temperature=0.7, api_key=openai_api_key)
-        #         message = "API_KEY is correct. Using gpt-4o model."
-        #     except:
-        #         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-        #         message = "API_KEY is incorrect. Using gpt-4o-mini model."
-        # else:
-        #     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-        #     message = "API_KEY is not provided. Using gpt-4o-mini model."
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
 
     memory = ConversationBufferMemory(
@@ -101,6 +90,7 @@ def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
         output_key="answer", # because issue: https://github.com/langchain-ai/langchain/issues/2303#issuecomment-1508973646
         return_messages=True
     )
+    
     ### SYSTEM PROMPT
     # from: https://github.com/langchain-ai/langchain/issues/5462#issuecomment-1569923207
     system_template = """Use the following pieces of context to answer the users question. 
@@ -122,8 +112,8 @@ def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
     Standalone question:"""
     condense_question_prompt = PromptTemplate.from_template(condense_question_template)
     conversation_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": k_docs_for_rag}),
+        llm = llm,
+        retriever = retriever,
         memory=memory,
         return_source_documents=True,
         combine_docs_chain_kwargs={"prompt": qa_prompt},
@@ -131,19 +121,6 @@ def get_conversation_chain(vectorstore, k_docs_for_rag, openai_api_key=None):
         
     )
     return conversation_chain
-    
-# def compose_keywords(query: str) -> str:
-#     # use llm to create keywords to answer question related
-#     keywords = ["sugar", "treatment", "young adults"]
-#     return keywords
-
-# def retrieve_relevant_paper():
-#     # get relevant paper inside database based on query
-#     return ""
-
-# def retrieve_relevant_texts_from_paper(text: str, query: str):
-#     # given a text/paper, retrieve k texts that are most likely to answer given query
-#     return ""
 
 def load_abstracts_from_pubmed(
     keywords: str, 
@@ -220,8 +197,8 @@ def main():
                     with st.spinner("Processing"):
                         raw_text, documents = get_pdf_text(pdf_docs)
                         text_chunks = get_text_chunks(raw_text)
-                        vectorstore = get_vectorstore(text_chunks)
-                        st.session_state.conversation = get_conversation_chain(vectorstore, k_docs_for_rag = 5)
+                        retriever = get_retriever(text_chunks, k_docs_for_rag = 5)
+                        st.session_state.conversation = get_conversation_chain(retriever)
                         
                         # # print relevant page
                         # page_num = 5
@@ -289,8 +266,8 @@ def main():
                     # somehow this part is reloaded whenever doing chat so implement checking to prevent resetting session_state
                     if st.session_state.conversation is None:
                         docs = get_text_chunks(raw_text)
-                        vectorstore = get_vectorstore(docs)
-                        st.session_state.conversation = get_conversation_chain(vectorstore, k_docs_for_rag)
+                        retriever = get_retriever(docs, k_docs_for_rag = 5)
+                        st.session_state.conversation = get_conversation_chain(retriever, k_docs_for_rag)
 
 if __name__ == "__main__":
     main()
