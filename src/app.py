@@ -114,10 +114,10 @@ def get_conversation_chain(retriever, openai_api_key=None):
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm = llm,
         retriever = retriever,
-        memory=memory,
-        return_source_documents=True,
-        combine_docs_chain_kwargs={"prompt": qa_prompt},
-        condense_question_prompt=condense_question_prompt
+        memory = memory,
+        return_source_documents = True,
+        combine_docs_chain_kwargs = {"prompt": qa_prompt},
+        condense_question_prompt = condense_question_prompt
         
     )
     return conversation_chain
@@ -266,8 +266,8 @@ def main():
                     # somehow this part is reloaded whenever doing chat so implement checking to prevent resetting session_state
                     if st.session_state.conversation is None:
                         docs = get_text_chunks(raw_text)
-                        retriever = get_retriever(docs, k_docs_for_rag = 5)
-                        st.session_state.conversation = get_conversation_chain(retriever, k_docs_for_rag)
+                        retriever = get_retriever(docs, k_docs_for_rag = k_docs_for_rag)
+                        st.session_state.conversation = get_conversation_chain(retriever)
 
 if __name__ == "__main__":
     main()
