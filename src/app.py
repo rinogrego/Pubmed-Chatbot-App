@@ -195,10 +195,11 @@ def main():
             if pdf_docs:
                 if st.button("Process"):
                     with st.spinner("Processing"):
-                        raw_text, documents = get_pdf_text(pdf_docs)
-                        text_chunks = get_text_chunks(raw_text)
-                        retriever = get_retriever(text_chunks, k_docs_for_rag = 5)
-                        st.session_state.conversation = get_conversation_chain(retriever)
+                        if st.session_state.conversation is None:
+                            raw_text, documents = get_pdf_text(pdf_docs)
+                            text_chunks = get_text_chunks(raw_text)
+                            retriever = get_retriever(text_chunks, k_docs_for_rag = 5)
+                            st.session_state.conversation = get_conversation_chain(retriever)
                         
                         # # print relevant page
                         # page_num = 5
