@@ -124,31 +124,48 @@ def get_conversation_chain(retriever, openai_api_key=None):
 
 def load_abstracts_from_pubmed(
     keywords: str, 
-    retmax: int = 10
+    retmax: int = 10,
+    attempt: int = 1,
 ) -> pd.DataFrame:
-    df = scrap_pubmed(query=keywords, retmax=retmax)
+    try:
+        df = scrap_pubmed(query=keywords, retmax=retmax)
     
-    # bar = st.progress(0, text="Performing similarity search based on the query...")
-    # # embed documents
-    # def embed_fn(title, text):
-    #     return GoogleGenerativeAIEmbeddings(
-    #         model="models/embedding-001",
-    #         task_type="retrieval_document",
-    #         google_api_key=os.getenv('GOOGLE_API_KEY')
-    #     ).embed_query(text=text)
-    # df["Abstract Embeddings"] = df.apply(lambda row: embed_fn(row["Title"], row["Abstract"]), axis=1)
-    
-    # query_embedding = GoogleGenerativeAIEmbeddings(
-    #     model="models/embedding-001", task_type="retrieval_query", google_api_key=os.getenv('GOOGLE_API_KEY')
-    # )
-    # qe = query_embedding.embed_query(keywords)
-    # import numpy as np
-    # dot_products = np.dot(np.stack(df['Abstract Embeddings']), qe)
-    # idx = np.argsort(-dot_products)[:doc_num] # sort indexes from index with the highest value to the lowest
-    # bar.empty()
-    # # df.columns: ['Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', 'DOI']
-    # return df.iloc[idx][['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']] # Return text with the associated indexes
-    return df[['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']]
+        # bar = st.progress(0, text="Performing similarity search based on the query...")
+        # # embed documents
+        # def embed_fn(title, text):
+        #     return GoogleGenerativeAIEmbeddings(
+        #         model="models/embedding-001",
+        #         task_type="retrieval_document",
+        #         google_api_key=os.getenv('GOOGLE_API_KEY')
+        #     ).embed_query(text=text)
+        # df["Abstract Embeddings"] = df.apply(lambda row: embed_fn(row["Title"], row["Abstract"]), axis=1)
+        
+        # query_embedding = GoogleGenerativeAIEmbeddings(
+        #     model="models/embedding-001", task_type="retrieval_query", google_api_key=os.getenv('GOOGLE_API_KEY')
+        # )
+        # qe = query_embedding.embed_query(keywords)
+        # import numpy as np
+        # dot_products = np.dot(np.stack(df['Abstract Embeddings']), qe)
+        # idx = np.argsort(-dot_products)[:doc_num] # sort indexes from index with the highest value to the lowest
+        # bar.empty()
+        # # df.columns: ['Title', 'Abstract', 'Journal', 'Language', 'Year', 'Month', 'PMID', 'DOI']
+        # return df.iloc[idx][['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']] # Return text with the associated indexes
+        return df[['Title', 'Abstract', 'Journal', 'Year', 'Month', 'PMID', 'DOI']]
+    except RuntimeError as e:
+        # RuntimeError: Supplied id parameter is empty.
+        # paraphrase
+        st.write("Encountered Error")
+        st.write(e)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        messages = [
+            ("system", f"You are a helpful assistant that paraphrase pubmed search keywords by changing reducing the keywords without losing most information. Paraphrase this failed keywords to extract pubmed abstracts"),
+            ("human", keywords),
+        ]
+        ai_msg = llm.invoke(messages)
+        new_keywords = ai_msg.content
+        st.write(f"Attempt      : {attempt+1}")
+        st.write(f"New Keywords : {new_keywords}")
+        return load_abstracts_from_pubmed(keywords=new_keywords, retmax=retmax, attempt=attempt+1)
 
 def main():
     if "conversation" not in st.session_state:
